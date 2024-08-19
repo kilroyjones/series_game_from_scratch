@@ -28,10 +28,25 @@ fn main() {
         );
     }
 
-    // Compile the generated wrappers
+    // Compile the generated wrappers (As per article)
+    // let gcc_output = Command::new("gcc")
+    //     .arg("-c")
+    //     .arg("-fPIC")
+    //     .arg("-I/usr/include")
+    //     .arg("-I.")
+    //     .arg(&extern_c_path)
+    //     .arg("-o")
+    //     .arg(out_path.join("extern.o"))
+    //     .output()
+    //     .expect("Failed to compile C code");
+
+    // Updated to make use of LTO optimizations as per this link:
+    // https://github.com/rust-lang/rust-bindgen/discussions/2405
     let gcc_output = Command::new("gcc")
         .arg("-c")
         .arg("-fPIC")
+        .arg("-flto") // Enable LTO
+        .arg("-O3") // Optimize for performance
         .arg("-I/usr/include")
         .arg("-I.")
         .arg(&extern_c_path)
@@ -39,7 +54,6 @@ fn main() {
         .arg(out_path.join("extern.o"))
         .output()
         .expect("Failed to compile C code");
-
     if !gcc_output.status.success() {
         panic!(
             "Failed to compile C code:\n{}",
@@ -47,8 +61,16 @@ fn main() {
         );
     }
 
-    // Create a static library for the wrappers
-    let ar_output = Command::new("ar")
+    // Create a static library for the wrappers (As per article)
+    // let ar_output = Command::new("ar")
+    //     .arg("crus")
+    //     .arg(out_path.join("libextern.a"))
+    //     .arg(out_path.join("extern.o"))
+    //     .output()
+    //     .expect("Failed to create static library");
+
+    // Update to follow through with LTO optimization changes
+    let ar_output = Command::new("gcc-ar")
         .arg("crus")
         .arg(out_path.join("libextern.a"))
         .arg(out_path.join("extern.o"))
@@ -65,4 +87,7 @@ fn main() {
     // Tell Cargo where to find the new library
     println!("cargo:rustc-link-search=native={}", out_path.display());
     println!("cargo:rustc-link-lib=static=extern");
+
+    // Updated to enable LTO for Rust
+    println!("cargo:rustc-link-arg=-flto");
 }

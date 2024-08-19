@@ -1,14 +1,9 @@
-use std::mem::size_of;
 use std::os::unix::io::RawFd;
 use std::ptr;
 
 use crate::bindings::*;
 
 #[repr(C)]
-// pub struct sockaddr {
-//     sa_family: u16,
-//     sa_data: [u8; 14],
-// }
 #[derive(Debug, Clone, Copy)]
 pub enum SocketOpcode {
     Accept,
@@ -16,6 +11,7 @@ pub enum SocketOpcode {
     Recv,
     Send,
     Shutdown,
+    NULL,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,9 +28,14 @@ pub struct Entry {
 }
 
 impl Entry {
+    /// Create initial Entry
+    ///
+    /// We create an empty entry with an invalid NULL opcode. This should be
+    /// replaced with another value before submitting to the queue.
+    ///
     pub fn new() -> Self {
         Entry {
-            opcode: SocketOpcode::Accept,
+            opcode: SocketOpcode::NULL,
             fd: -1,
             addr: ptr::null_mut(),
             addrlen: ptr::null_mut(),
