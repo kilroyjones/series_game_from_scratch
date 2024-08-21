@@ -7,10 +7,8 @@ use crate::bindings::*;
 #[derive(Debug, Clone, Copy)]
 pub enum SocketOpcode {
     Accept,
-    Connect,
     Recv,
     Send,
-    Shutdown,
     NULL,
 }
 
@@ -54,14 +52,6 @@ impl Entry {
         self
     }
 
-    pub fn set_connect(&mut self, fd: RawFd, addr: *const sockaddr, addrlen: u32) -> &mut Self {
-        self.opcode = SocketOpcode::Connect;
-        self.fd = fd;
-        self.addr = addr as *mut _;
-        self.addrlen = &addrlen as *const _ as *mut _;
-        self
-    }
-
     pub fn set_recv(&mut self, fd: RawFd, buf: *mut u8, len: usize, flags: i32) -> &mut Self {
         self.opcode = SocketOpcode::Recv;
         self.fd = fd;
@@ -77,13 +67,6 @@ impl Entry {
         self.buf = buf as *mut _;
         self.len = len;
         self.flags = flags;
-        self
-    }
-
-    pub fn set_shutdown(&mut self, fd: RawFd, how: i32) -> &mut Self {
-        self.opcode = SocketOpcode::Shutdown;
-        self.fd = fd;
-        self.flags = how;
         self
     }
 
