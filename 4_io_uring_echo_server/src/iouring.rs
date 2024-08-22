@@ -1,11 +1,15 @@
-use crate::entry::Entry;
-use std::io;
-use std::ptr;
-
+/// IoUring
+///
+/// This crate sits between our IoUring instance and the bindings from liburing.
+/// It uses a limited subset of iouring's functionality. Just enough to get a basic
+/// echo server running.
+///
 use crate::bindings::*;
-use std::mem::zeroed;
-
+use crate::entry::Entry;
 use crate::entry::SocketOpcode;
+use std::io;
+use std::mem::zeroed;
+use std::ptr;
 
 pub struct IoUring {
     ring: io_uring,
@@ -79,7 +83,10 @@ impl IoUring {
         Ok(())
     }
 
-    /// Submits the entries for processing
+    /// Submits the entries
+    ///
+    /// We can create multiple or a single entry before submitting.
+    ///
     pub fn submit(&mut self) -> io::Result<usize> {
         let ret = unsafe { io_uring_submit(&mut self.ring) };
 

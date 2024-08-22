@@ -1,7 +1,10 @@
+/// Entry
+///
+/// This defines iouring entries for the echo server
+///
+use crate::bindings::*;
 use std::os::unix::io::RawFd;
 use std::ptr;
-
-use crate::bindings::*;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
