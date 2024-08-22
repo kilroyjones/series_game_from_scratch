@@ -4,7 +4,6 @@
 /// build.rs). It will only work if the liburing library has been installed.
 ///
 use crate::bindings::*;
-use crate::entry::Entry;
 use crate::iouring::IoUring;
 use std::collections::HashMap;
 use std::io;
@@ -70,6 +69,7 @@ impl EchoServer {
             next_id: 0,
         })
     }
+
     /// Run the server
     ///
     /// When run, we first add the listener to the shared memory space, then we
@@ -100,11 +100,14 @@ impl EchoServer {
     /// don't care about the IP address for now. Later, we'll want to grab these.
     ///
     fn add_accept(&mut self) -> io::Result<()> {
-        let mut entry = Entry::new();
-        entry
-            .set_accept(self.listener.as_raw_fd(), ptr::null_mut(), ptr::null_mut())
-            .set_user_data(self.generate_entry_id(Operation::Accept, self.listener.as_raw_fd()));
-        self.ring.create_entry(&entry)
+        let user_data = self.generate_entry_id(Operation::Accept, self.listener.as_raw_fd());
+        self.ring.create_entry().set_accept(
+            self.listener.as_raw_fd(),
+            ptr::null_mut(),
+            ptr::null_mut(),
+            user_data,
+        );
+        Ok(())
     }
 
     /// Receive information
@@ -117,12 +120,11 @@ impl EchoServer {
         let buffer = Box::into_raw(Box::new([0u8; BUFFER_SIZE])) as *mut u8;
         let user_data = self.generate_entry_id(Operation::Read(buffer), fd);
 
-        let mut entry = Entry::new();
-        entry
-            .set_recv(fd, buffer as *mut u8, BUFFER_SIZE, 0)
-            .set_user_data(user_data);
+        self.ring
+            .create_entry()
+            .set_recv(fd, buffer as *mut u8, BUFFER_SIZE, 0, user_data);
 
-        self.ring.create_entry(&entry)
+        Ok(())
     }
 
     /// Send information
@@ -135,12 +137,11 @@ impl EchoServer {
     fn add_send(&mut self, fd: RawFd, buffer: *mut u8, len: usize) -> io::Result<()> {
         let user_data = self.generate_entry_id(Operation::Write(buffer), fd);
 
-        let mut entry = Entry::new();
-        entry
-            .set_send(fd, buffer as *const u8, len, 0)
-            .set_user_data(user_data);
+        self.ring
+            .create_entry()
+            .set_send(fd, buffer as *const u8, len, 0, user_data);
 
-        self.ring.create_entry(&entry)
+        Ok(())
     }
 
     /// Creates entry id
@@ -233,9 +234,7 @@ impl EchoServer {
 
     /// Handle write
     ///
-    /// We write and then queue another receive on the same socket. No matter
-    /// what, we release the buffer used to store the information.
-    ///
+    /// We
     fn handle_write(&mut self, res: i32, buffer: *mut u8, fd: RawFd) -> io::Result<()> {
         if res >= 0 {
             println!("Send completed: {} bytes", res);

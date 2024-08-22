@@ -6,7 +6,6 @@
 ///
 use crate::bindings::*;
 use crate::entry::Entry;
-use crate::entry::SocketOpcode;
 use std::io;
 use std::mem::zeroed;
 use std::ptr;
@@ -31,56 +30,9 @@ impl IoUring {
         Ok(Self { ring })
     }
 
-    /// Add entry to the queue
-    ///
-    /// What happens here is we first get a pointer to part of the shared memory
-    /// between user and kernel space, then use one of the prep functions to
-    /// prepare the space with our entry data.
-    ///
-    /// The last part, user_data, is a way to tag such that we know when a
-    /// specific one has completed. We're not really making use of this.
-    ///
-    pub fn create_entry(&mut self, entry: &Entry) -> io::Result<()> {
-        // Get a pointer to an empty submission queue entry in the shared memoery.
-        let sqe = unsafe { io_uring_get_sqe(&mut self.ring) };
-
-        // If null, then the queue is full
-        if sqe.is_null() {
-            return Err(io::Error::new(io::ErrorKind::Other, "Failed to get SQE"));
-        }
-
-        // Fill the submission queue entry
-        unsafe {
-            match entry.opcode {
-                SocketOpcode::Accept => {
-                    io_uring_prep_accept(sqe, entry.fd, entry.addr, entry.addrlen, 0);
-                }
-                SocketOpcode::Recv => {
-                    io_uring_prep_recv(
-                        sqe,
-                        entry.fd,
-                        entry.buf as *mut _,
-                        entry.len as usize,
-                        entry.flags,
-                    );
-                }
-                SocketOpcode::Send => {
-                    io_uring_prep_send(
-                        sqe,
-                        entry.fd,
-                        entry.buf as *const _,
-                        entry.len,
-                        entry.flags,
-                    );
-                }
-                SocketOpcode::NULL => {}
-            }
-
-            // Add the user_data
-            (*sqe).user_data = entry.user_data;
-        }
-
-        Ok(())
+    /// Create a new Entry
+    pub fn create_entry(&mut self) -> Entry {
+        Entry::new(&mut self.ring)
     }
 
     /// Submits the entries
