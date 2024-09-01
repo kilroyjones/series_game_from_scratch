@@ -6,11 +6,11 @@ mod bindings {
     #[cfg(not(rust_analyzer))]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
+mod echo_server;
 mod entry;
 mod iouring;
-mod server;
 
-use crate::server::EchoServer;
+use crate::echo_server::EchoServer;
 use std::io;
 
 fn main() -> io::Result<()> {

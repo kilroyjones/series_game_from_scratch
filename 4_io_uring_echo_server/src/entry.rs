@@ -23,7 +23,7 @@ impl<'a> Entry<'a> {
         addr: *mut sockaddr,
         addrlen: *mut u32,
         user_data: u64,
-    ) -> &mut Self {
+    ) {
         let sqe = unsafe { io_uring_get_sqe(self.ring) };
         if !sqe.is_null() {
             unsafe {
@@ -31,17 +31,9 @@ impl<'a> Entry<'a> {
                 (*sqe).user_data = user_data;
             }
         }
-        self
     }
 
-    pub fn set_recv(
-        &mut self,
-        fd: RawFd,
-        buf: *mut u8,
-        len: usize,
-        flags: i32,
-        user_data: u64,
-    ) -> &mut Self {
+    pub fn set_receive(&mut self, fd: RawFd, buf: *mut u8, len: usize, flags: i32, user_data: u64) {
         let sqe = unsafe { io_uring_get_sqe(self.ring) };
         if !sqe.is_null() {
             unsafe {
@@ -49,17 +41,9 @@ impl<'a> Entry<'a> {
                 (*sqe).user_data = user_data;
             }
         }
-        self
     }
 
-    pub fn set_send(
-        &mut self,
-        fd: RawFd,
-        buf: *const u8,
-        len: usize,
-        flags: i32,
-        user_data: u64,
-    ) -> &mut Self {
+    pub fn set_send(&mut self, fd: RawFd, buf: *const u8, len: usize, flags: i32, user_data: u64) {
         let sqe = unsafe { io_uring_get_sqe(self.ring) };
         if !sqe.is_null() {
             unsafe {
@@ -67,6 +51,5 @@ impl<'a> Entry<'a> {
                 (*sqe).user_data = user_data;
             }
         }
-        self
     }
 }

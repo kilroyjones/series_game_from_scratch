@@ -18,13 +18,13 @@ const BUFFER_SIZE: usize = 1024;
 /// Operation types
 ///
 /// This defines the operation types we'll be using. This setup leaves it open
-/// to easily adding more. Note, both Read and Write store the location of the
+/// to easily adding more. Note, both Receive and Send the location of the
 /// operation's associated buffer.
 ///
 enum Operation {
     Accept,
-    Read(*mut u8),
-    Write(*mut u8),
+    Receive(*mut u8),
+    Send(*mut u8),
 }
 
 /// Operation data
@@ -116,13 +116,13 @@ impl EchoServer {
     /// and then use the unique memory address of that buffer as the key in our
     /// hash with the value as the fd.
     ///
-    fn add_recv(&mut self, fd: RawFd) -> io::Result<()> {
+    fn add_receive(&mut self, fd: RawFd) -> io::Result<()> {
         let buffer = Box::into_raw(Box::new([0u8; BUFFER_SIZE])) as *mut u8;
-        let user_data = self.generate_entry_id(Operation::Read(buffer), fd);
+        let user_data = self.generate_entry_id(Operation::Receive(buffer), fd);
 
         self.ring
             .create_entry()
-            .set_recv(fd, buffer as *mut u8, BUFFER_SIZE, 0, user_data);
+            .set_receive(fd, buffer as *mut u8, BUFFER_SIZE, 0, user_data);
 
         Ok(())
     }
@@ -135,7 +135,7 @@ impl EchoServer {
     /// space.
     ///
     fn add_send(&mut self, fd: RawFd, buffer: *mut u8, len: usize) -> io::Result<()> {
-        let user_data = self.generate_entry_id(Operation::Write(buffer), fd);
+        let user_data = self.generate_entry_id(Operation::Send(buffer), fd);
 
         self.ring
             .create_entry()
@@ -162,7 +162,7 @@ impl EchoServer {
     ///
     /// Grade the user_data from our completion queue entry (cqe) and then remove it
     /// from our operations hashmap. Each operation has a variant and associated file
-    /// description AND possibly buffer (Read/Write). We then pass those along to the
+    /// description AND possibly buffer (Receive/Send). We then pass those along to the
     /// respective handler.
     ///
     fn handle_completion(&mut self, cqe: io_uring_cqe) -> io::Result<()> {
@@ -172,8 +172,8 @@ impl EchoServer {
         if let Some(op_data) = self.operations.remove(&user_data) {
             match op_data.op {
                 Operation::Accept => self.handle_accept(res)?,
-                Operation::Read(buffer) => self.handle_read(res, buffer, op_data.fd)?,
-                Operation::Write(buffer) => self.handle_write(res, buffer, op_data.fd)?,
+                Operation::Receive(buffer) => self.handle_receive(res, buffer, op_data.fd)?,
+                Operation::Send(buffer) => self.handle_send(res, buffer, op_data.fd)?,
             }
         }
 
@@ -190,7 +190,7 @@ impl EchoServer {
     fn handle_accept(&mut self, res: i32) -> io::Result<()> {
         if res >= 0 {
             println!("Accepted new connection: {}", res);
-            self.add_recv(res)?;
+            self.add_receive(res)?;
         } else if res == -(EAGAIN as i32) {
             println!("No new connection available");
         } else {
@@ -200,9 +200,9 @@ impl EchoServer {
         self.add_accept()
     }
 
-    /// Handle read
+    /// Handle receive
     ///
-    /// If we get a successful read we convert the buffer to a readable string,
+    /// If we get a successful receive we convert the buffer to a readable string,
     /// otherwise if we get 0 the connection is closed and we release the
     /// buffer.
     ///
@@ -210,7 +210,7 @@ impl EchoServer {
     /// Rust will be able to clean it up after it does out of scope. We do this
     /// on connection closed or failure.
     ///
-    fn handle_read(&mut self, res: i32, buffer: *mut u8, fd: RawFd) -> io::Result<()> {
+    fn handle_receive(&mut self, res: i32, buffer: *mut u8, fd: RawFd) -> io::Result<()> {
         if res > 0 {
             let slice = unsafe { std::slice::from_raw_parts(buffer, res as usize) };
             let text = String::from_utf8_lossy(slice);
@@ -232,13 +232,15 @@ impl EchoServer {
         Ok(())
     }
 
-    /// Handle write
+    /// Handle send
     ///
-    /// We
-    fn handle_write(&mut self, res: i32, buffer: *mut u8, fd: RawFd) -> io::Result<()> {
+    /// The information is sent and another receive is queued up. In all cases
+    /// we release the buffer pointer.
+    ///
+    fn handle_send(&mut self, res: i32, buffer: *mut u8, fd: RawFd) -> io::Result<()> {
         if res >= 0 {
             println!("Send completed: {} bytes", res);
-            self.add_recv(fd)?;
+            self.add_receive(fd)?;
         } else {
             eprintln!("Write failed with error: {}", -res);
         }
