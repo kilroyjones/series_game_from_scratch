@@ -1,0 +1,5 @@
+cargo:rustc-link-search=native=/usr/lib
+cargo:rustc-link-lib=dylib=uring
+cargo:rerun-if-changed=wrapper.h
+cargo:rustc-link-search=native=/home/kilroy/code/rust/series_game_from_scratch/5_io_uring_websocket_server/target/debug/build/ttestes-02a8a58182147133/out
+cargo:rustc-link-lib=static=extern
